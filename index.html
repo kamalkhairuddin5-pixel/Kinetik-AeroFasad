@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Kinetic Facade - 8 Aesthetic Modes</title>
+    <title>3D Kinetic Facade - AeroFasad</title>
     <style>
         body {
             margin: 0;
@@ -15,13 +15,40 @@
             user-select: none;
             -webkit-user-select: none;
         }
+        
         canvas {
             display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 100vw;
             height: 100vh;
+            z-index: 1;
         }
         
-        /* Modern Glassmorphism UI */
+        #credits-panel {
+            position: absolute;
+            top: 25px;
+            left: 30px;
+            z-index: 10;
+            pointer-events: none;
+        }
+        
+        #credits-panel .project-title {
+            color: #8ab4f8; 
+            font-size: 36px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            margin-bottom: 10px;
+        }
+        
+        #credits-panel .creators {
+            color: #9aa0a6; 
+            font-size: 16px;
+            line-height: 1.6;
+            font-weight: 400;
+        }
+
         #ui-container {
             position: absolute;
             bottom: 30px;
@@ -37,24 +64,39 @@
             max-width: 800px;
         }
 
-        .title-box {
-            background: rgba(20, 20, 25, 0.6);
-            padding: 8px 25px;
-            border-radius: 25px;
+        .slider-container {
+            display: flex;
+            justify-content: center;
+            background: rgba(30, 30, 35, 0.5);
+            padding: 12px 25px;
+            border-radius: 20px;
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
-            border: 1px solid rgba(255,255,255,0.15);
-            color: #ffffff;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+            width: 100%;
+            box-sizing: border-box;
         }
 
-        .title-box h1 {
-            margin: 0;
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .slider-group label {
+            color: rgba(255,255,255,0.9);
             font-size: 13px;
+            margin-bottom: 8px;
             font-weight: 600;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .slider-group input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: #8ab4f8;
         }
 
         .button-group {
@@ -70,6 +112,7 @@
             border: 1px solid rgba(255,255,255,0.1);
             box-shadow: 0 15px 40px rgba(0,0,0,0.6);
             width: 100%;
+            box-sizing: border-box;
         }
 
         button {
@@ -106,25 +149,36 @@
             transform: translateY(-2px);
         }
 
-        /* Responsive UI for Mobile */
         @media (max-width: 600px) {
-            button {
-                flex: 1 1 calc(33% - 10px);
-                font-size: 11px;
-                padding: 8px;
-                min-width: auto;
-            }
-            #ui-container {
-                bottom: 20px;
-            }
+            #credits-panel { top: 15px; left: 15px; }
+            #credits-panel .project-title { font-size: 24px; margin-bottom: 5px;}
+            #credits-panel .creators { font-size: 12px; }
+            button { flex: 1 1 calc(33% - 10px); font-size: 11px; padding: 8px; min-width: auto; }
+            #ui-container { bottom: 15px; }
         }
     </style>
 </head>
 <body>
-    <div id="ui-container">
-        <div class="title-box">
-            <h1>Kinetic Facade - Controller</h1>
+
+    <div id="credits-panel">
+        <div class="project-title">Kinetik-AeroFasad</div>
+        <div class="creators">
+            Created by:<br>
+            Carolyne Nifili M - 6112401136<br>
+            Kamal Khairuddin - 6112401137<br>
+            Jessica Sunglydia - 6112401164
         </div>
+    </div>
+
+    <div id="ui-container">
+        <!-- Slider Tunggal dengan Label Baru -->
+        <div class="slider-container">
+            <div class="slider-group">
+                <label for="speed-facade">Responsivitas</label>
+                <input type="range" id="speed-facade" min="0.01" max="0.5" step="0.01" value="0.1">
+            </div>
+        </div>
+
         <div class="button-group">
             <button id="btn-mode-1" class="active" onclick="setMode(1)">Hover</button>
             <button id="btn-mode-2" onclick="setMode(2)">Ripple</button>
@@ -156,8 +210,8 @@
         // State Management
         let currentMode = 1; 
         let ripples = []; 
+        let facadeSpeed = 0.1;
 
-        // Geometry Constants
         const L = 1.5; 
         const H_SMALL = L * Math.sqrt(3) / 2; 
         const R_SMALL = L / Math.sqrt(3); 
@@ -166,14 +220,10 @@
         const S = 2 * L; 
         const H_LARGE = S * Math.sqrt(3) / 2; 
 
-        // Max fold angle for dramatic effect (~114 degrees)
         const MAX_FOLD_ANGLE = 2.0; 
         
-        // Grid size
         const cols = 26;
         const rows = 16;
-        
-        // Screen bounds estimation for Sweeping effect
         const gridWidth = cols * L;
 
         init();
@@ -181,6 +231,7 @@
 
         function init() {
             scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x121212); 
             scene.fog = new THREE.FogExp2(0x121212, 0.015);
             clock = new THREE.Clock();
 
@@ -194,7 +245,11 @@
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             document.body.appendChild(renderer.domElement);
 
-            // Lighting Setup
+            const speedSlider = document.getElementById('speed-facade');
+            if(speedSlider) {
+                speedSlider.addEventListener('input', (e) => facadeSpeed = parseFloat(e.target.value));
+            }
+
             scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 
             const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
@@ -216,7 +271,6 @@
             fillLight.position.set(-15, -15, 10);
             scene.add(fillLight);
 
-            // Material Setup (Premium look)
             const panelMaterial = new THREE.MeshPhysicalMaterial({
                 color: 0xf4f4f8,
                 metalness: 0.2,
@@ -226,7 +280,6 @@
                 side: THREE.DoubleSide
             });
 
-            // Geometry shapes
             const baseShape = new THREE.Shape();
             baseShape.moveTo(0, R_SMALL);
             baseShape.lineTo(L/2, -r_SMALL);
@@ -241,11 +294,10 @@
             flapShape.lineTo(-L/2, 0);
             const flapGeo = new THREE.ShapeGeometry(flapShape);
 
-            const shrinkScale = 0.97; // Give a tiny gap between faces for visual crispness
+            const shrinkScale = 0.97;
             const offsetX = (cols - 1) * L / 2;
             const offsetY = (rows - 1) * H_LARGE / 2;
 
-            // Generate Alternating Tessellation Grid
             for (let j = 0; j < rows; j++) {
                 for (let i = 0; i < cols; i++) {
                     const isLargeUp = (i + j) % 2 === 0;
@@ -293,20 +345,15 @@
                     group.position.set(posX, posY, 0);
                     scene.add(group);
 
-                    // Pre-calculate data for specific animations
-                    const distCenter = Math.sqrt(posX * posX + posY * posY);
-                    const angleCenter = Math.atan2(posY, posX);
-                    const randomPhase = Math.random() * Math.PI * 2;
-
                     modules.push({
                         group: group,
                         hinges: hinges,
                         currentAngle: 0,
                         originalX: posX,
                         originalY: posY,
-                        distCenter: distCenter,
-                        angleCenter: angleCenter,
-                        randomPhase: randomPhase,
+                        distCenter: Math.sqrt(posX * posX + posY * posY),
+                        angleCenter: Math.atan2(posY, posX),
+                        randomPhase: Math.random() * Math.PI * 2,
                         isLargeUp: isLargeUp,
                         trailHeat: 0,
                         glitchTimer: 0
@@ -314,7 +361,6 @@
                 }
             }
 
-            // Invisible plane for precise raycasting
             const intGeo = new THREE.PlaneGeometry(500, 500);
             const intMat = new THREE.MeshBasicMaterial({ visible: false });
             intersectionPlane = new THREE.Mesh(intGeo, intMat);
@@ -334,18 +380,14 @@
             window.addEventListener('pointerdown', onPointerDown);
         }
 
-        // --- UI Logic ---
         function setMode(modeId) {
             currentMode = modeId;
             document.querySelectorAll('.button-group button').forEach(btn => btn.classList.remove('active'));
             document.getElementById(`btn-mode-${modeId}`).classList.add('active');
-            
-            // Reset temporary states
             ripples = [];
             targetPoint.set(-1000, -1000, 0);
         }
 
-        // --- Event Listeners ---
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
@@ -353,7 +395,6 @@
         }
 
         function onPointerMove(event) {
-            // Normalize mouse coordinates for Raycaster
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
@@ -369,7 +410,7 @@
         }
 
         function onPointerDown(event) {
-            if (currentMode === 2) { // Ripple Mode
+            if (currentMode === 2) { 
                 mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
                 mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
                 raycaster.setFromCamera(mouse, camera);
@@ -380,19 +421,17 @@
                         center: intersects[0].point.clone(),
                         radius: 0,
                         maxRadius: 30,     
-                        speed: 0.4,       
+                        speed: 0.4,        
                         thickness: 4.5     
                     });
                 }
             }
         }
 
-        // --- Animation Loop ---
         function animate() {
             requestAnimationFrame(animate);
             const time = clock.getElapsedTime();
 
-            // Process Ripple Expansion First
             if (currentMode === 2) {
                 for (let i = ripples.length - 1; i >= 0; i--) {
                     ripples[i].radius += ripples[i].speed;
@@ -402,12 +441,11 @@
                 }
             }
 
-            // Loop through all modules and calculate their target angles
             modules.forEach(mod => {
                 let targetAngle = 0;
 
                 switch(currentMode) {
-                    case 1: // HOVER
+                    case 1: 
                         const effectRadius = L * 5.0; 
                         const dist = targetPoint.distanceTo(mod.group.position);
                         if (dist < effectRadius) {
@@ -415,13 +453,11 @@
                             targetAngle = MAX_FOLD_ANGLE * (intensity * intensity); 
                         }
                         break;
-
-                    case 2: // RIPPLE
+                    case 2: 
                         let maxRippleEffect = 0;
                         for (let r of ripples) {
                             const distToCenter = mod.group.position.distanceTo(r.center);
                             const distToRing = Math.abs(distToCenter - r.radius);
-                            
                             if (distToRing < r.thickness) {
                                 let intensity = Math.cos((distToRing / r.thickness) * (Math.PI / 2));
                                 let fadeOut = Math.max(0, 1.0 - (r.radius / r.maxRadius));
@@ -431,78 +467,48 @@
                         }
                         targetAngle = MAX_FOLD_ANGLE * maxRippleEffect;
                         break;
-
-                    case 3: // AUTO WAVE
-                        const freqX = 0.2;
-                        const freqY = 0.25;
-                        const waveSpeed = 2.0;
-                        let waveVal = Math.sin(mod.originalX * freqX + time * waveSpeed) + 
-                                      Math.cos(mod.originalY * freqY + time * waveSpeed * 0.8);
+                    case 3: 
+                        let waveVal = Math.sin(mod.originalX * 0.2 + time * 2.0) + Math.cos(mod.originalY * 0.25 + time * 1.6);
                         let normalizedVal = Math.max(0, Math.min(1, (waveVal + 2) / 4));
                         targetAngle = MAX_FOLD_ANGLE * (normalizedVal * normalizedVal);
                         break;
-                    
-                    case 4: // BREATHING
-                        // Global synchronized wave
+                    case 4: 
                         let breathVal = Math.sin(time * 1.5) * 0.5 + 0.5;
                         targetAngle = MAX_FOLD_ANGLE * (breathVal * breathVal);
                         break;
-                    
-                    case 5: // TWINKLE
-                        // Random phase per module creates a chaotic/organic fluttering effect
+                    case 5: 
                         let twinkVal = Math.sin(time * 2.5 + mod.randomPhase) * 0.5 + 0.5;
-                        // Power of 3 makes the opening sharp and the close smooth
                         targetAngle = MAX_FOLD_ANGLE * Math.pow(twinkVal, 3);
                         break;
-
-                    case 6: // SPIRAL
-                        // Combine distance and polar angle to create a spiral
+                    case 6: 
                         let spiralWave = Math.sin(mod.distCenter * 0.4 - time * 3.0 + mod.angleCenter * 2.0);
-                        let spiralNorm = Math.max(0, spiralWave); // Only positive peaks
-                        targetAngle = MAX_FOLD_ANGLE * spiralNorm;
+                        targetAngle = MAX_FOLD_ANGLE * Math.max(0, spiralWave);
                         break;
-                    
-                    case 7: // ALTERNATING
-                        // Modulo logic creates checkerboard/opposing phases based on orientation
+                    case 7: 
                         let phaseAlt = mod.isLargeUp ? Math.sin(time * 2.5) : Math.cos(time * 2.5);
-                        let normAlt = phaseAlt * 0.5 + 0.5;
-                        targetAngle = MAX_FOLD_ANGLE * normAlt;
+                        targetAngle = MAX_FOLD_ANGLE * (phaseAlt * 0.5 + 0.5);
                         break;
-
-                    case 8: // SWEEP
-                        // Oscillating focal point across the X axis
+                    case 8: 
                         let scanX = Math.sin(time * 1.5) * (gridWidth * 0.45);
                         let distScan = Math.abs(mod.originalX - scanX);
-                        // Thickness of the sweeping scanner
-                        let scanThickness = L * 4.0;
-                        let sweepVal = Math.max(0, 1.0 - (distScan / scanThickness));
+                        let sweepVal = Math.max(0, 1.0 - (distScan / (L * 4.0)));
                         targetAngle = MAX_FOLD_ANGLE * (sweepVal * sweepVal);
                         break;
-                        
-                    case 9: // DIAGONAL
+                    case 9: 
                         let diagWave = Math.sin((mod.originalX + mod.originalY) * 0.3 - time * 3.0);
                         targetAngle = MAX_FOLD_ANGLE * Math.max(0, diagWave);
                         break;
-
-                    case 10: // HEARTBEAT
-                        // Double beat rhythm using modulo timing mapped radially
+                    case 10: 
                         let localT = (time * 1.5 - mod.distCenter * 0.08) % 1.5;
                         if (localT < 0) localT += 1.5;
                         let beatVal = 0;
-                        if (localT < 0.15) {
-                            beatVal = localT / 0.15; // Fast open
-                        } else if (localT < 0.3) {
-                            beatVal = 1.0 - ((localT - 0.15) / 0.15) * 0.6;  // Slight close
-                        } else if (localT < 0.45) {
-                            beatVal = 0.4 + ((localT - 0.3) / 0.15) * 0.6; // Fast open 2
-                        } else if (localT < 0.7) {
-                            beatVal = 1.0 - ((localT - 0.45) / 0.25); // Full close
-                        }
+                        if (localT < 0.15) beatVal = localT / 0.15; 
+                        else if (localT < 0.3) beatVal = 1.0 - ((localT - 0.15) / 0.15) * 0.6; 
+                        else if (localT < 0.45) beatVal = 0.4 + ((localT - 0.3) / 0.15) * 0.6; 
+                        else if (localT < 0.7) beatVal = 1.0 - ((localT - 0.45) / 0.25); 
                         targetAngle = MAX_FOLD_ANGLE * Math.max(0, beatVal);
                         break;
-
-                    case 11: // GLITCH
-                        // Random sporadic snappy movements
+                    case 11: 
                         if (Math.random() < 0.005) mod.glitchTimer = Math.floor(Math.random() * 10) + 5;
                         if (mod.glitchTimer > 0) {
                             targetAngle = Math.random() > 0.3 ? MAX_FOLD_ANGLE : 0;
@@ -511,37 +517,31 @@
                             targetAngle = 0;
                         }
                         break;
-
-                    case 12: // RESONANCE
-                        // Intersecting sine waves creating interference patterns
+                    case 12: 
                         let w1 = Math.sin(mod.distCenter * 0.2 - time * 2.0);
                         let w2 = Math.sin((mod.originalX * 0.3) + time * 1.5);
                         let w3 = Math.cos((mod.originalY * 0.3) - time * 1.2);
                         let resVal = (w1 + w2 + w3) / 3.0;
                         targetAngle = MAX_FOLD_ANGLE * (resVal > 0 ? resVal * resVal : 0);
                         break;
-
-                    case 13: // TRAIL
+                    case 13: 
                         const tRadius = L * 4.0;
-                        const d = targetPoint.distanceTo(mod.group.position);
-                        if (d < tRadius) {
+                        if (targetPoint.distanceTo(mod.group.position) < tRadius) {
                             mod.trailHeat = 1.0; 
                         } else {
-                            mod.trailHeat = Math.max(0, mod.trailHeat - 0.015); // Slow decay
+                            mod.trailHeat = Math.max(0, mod.trailHeat - 0.015);
                         }
                         targetAngle = MAX_FOLD_ANGLE * (mod.trailHeat * mod.trailHeat);
                         break;
                 }
 
-                // SMOOTH LERPING OR SNAPPING
                 if (currentMode === 11) {
-                    mod.currentAngle = targetAngle; // Snap instantly for glitch effect without smoothing
+                    mod.currentAngle = targetAngle; 
                 } else {
-                    // This ensures all transitions between modes and states remain buttery smooth
-                    mod.currentAngle += (targetAngle - mod.currentAngle) * 0.12;
+                    let angleDifference = targetAngle - mod.currentAngle;
+                    mod.currentAngle += angleDifference * facadeSpeed;
                 }
 
-                // Apply the calculated rotation to the 3 flaps
                 mod.hinges.forEach(hinge => {
                     hinge.rotation.x = mod.currentAngle;
                 });
