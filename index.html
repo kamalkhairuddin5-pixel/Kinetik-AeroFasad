@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Kinetic Facade - 8 Aesthetic Modes</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #121212; 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            touch-action: none; 
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        /* Modern Glassmorphism UI */
+        #ui-container {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            pointer-events: auto;
+            z-index: 10;
+            width: 90%;
+            max-width: 800px;
+        }
+
+        .title-box {
+            background: rgba(20, 20, 25, 0.6);
+            padding: 8px 25px;
+            border-radius: 25px;
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: #ffffff;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .title-box h1 {
+            margin: 0;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            background: rgba(30, 30, 35, 0.5);
+            padding: 12px;
+            border-radius: 20px;
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+            width: 100%;
+        }
+
+        button {
+            flex: 1 1 calc(20% - 10px); 
+            min-width: 85px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid transparent;
+            color: rgba(255,255,255,0.7);
+            padding: 12px 15px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        button:hover {
+            color: #ffffff;
+            background: rgba(255,255,255,0.15);
+            transform: translateY(-2px);
+        }
+
+        button.active {
+            background: #ffffff;
+            color: #121212;
+            border: 1px solid #ffffff;
+            box-shadow: 0 5px 15px rgba(255,255,255,0.25);
+            font-weight: 600;
+            transform: translateY(-2px);
+        }
+
+        /* Responsive UI for Mobile */
+        @media (max-width: 600px) {
+            button {
+                flex: 1 1 calc(33% - 10px);
+                font-size: 11px;
+                padding: 8px;
+                min-width: auto;
+            }
+            #ui-container {
+                bottom: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="ui-container">
+        <div class="title-box">
+            <h1>Kinetic Facade - Controller</h1>
+        </div>
+        <div class="button-group">
+            <button id="btn-mode-1" class="active" onclick="setMode(1)">Hover</button>
+            <button id="btn-mode-2" onclick="setMode(2)">Ripple</button>
+            <button id="btn-mode-3" onclick="setMode(3)">Wave</button>
+            <button id="btn-mode-4" onclick="setMode(4)">Breathing</button>
+            <button id="btn-mode-5" onclick="setMode(5)">Twinkle</button>
+            <button id="btn-mode-6" onclick="setMode(6)">Spiral</button>
+            <button id="btn-mode-7" onclick="setMode(7)">Alternating</button>
+            <button id="btn-mode-8" onclick="setMode(8)">Sweep</button>
+            <button id="btn-mode-9" onclick="setMode(9)">Diagonal</button>
+            <button id="btn-mode-10" onclick="setMode(10)">Heartbeat</button>
+            <button id="btn-mode-11" onclick="setMode(11)">Glitch</button>
+            <button id="btn-mode-12" onclick="setMode(12)">Resonance</button>
+            <button id="btn-mode-13" onclick="setMode(13)">Trail</button>
+        </div>
+    </div>
+
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        let scene, camera, renderer, controls;
+        let modules = [];
+        let raycaster, mouse;
+        let intersectionPlane, targetPoint;
+        let clock;
+
+        // State Management
+        let currentMode = 1; 
+        let ripples = []; 
+
+        // Geometry Constants
+        const L = 1.5; 
+        const H_SMALL = L * Math.sqrt(3) / 2; 
+        const R_SMALL = L / Math.sqrt(3); 
+        const r_SMALL = L / (2 * Math.sqrt(3)); 
+        
+        const S = 2 * L; 
+        const H_LARGE = S * Math.sqrt(3) / 2; 
+
+        // Max fold angle for dramatic effect (~114 degrees)
+        const MAX_FOLD_ANGLE = 2.0; 
+        
+        // Grid size
+        const cols = 26;
+        const rows = 16;
+        
+        // Screen bounds estimation for Sweeping effect
+        const gridWidth = cols * L;
+
+        init();
+        animate();
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x121212, 0.015);
+            clock = new THREE.Clock();
+
+            camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, -20, 50);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.body.appendChild(renderer.domElement);
+
+            // Lighting Setup
+            scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+            dirLight.position.set(15, 25, 30);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            dirLight.shadow.camera.near = 0.5;
+            dirLight.shadow.camera.far = 150;
+            const shadowD = 35;
+            dirLight.shadow.camera.left = -shadowD;
+            dirLight.shadow.camera.right = shadowD;
+            dirLight.shadow.camera.top = shadowD;
+            dirLight.shadow.camera.bottom = -shadowD;
+            dirLight.shadow.bias = -0.0005;
+            scene.add(dirLight);
+
+            const fillLight = new THREE.DirectionalLight(0x88bbff, 0.5);
+            fillLight.position.set(-15, -15, 10);
+            scene.add(fillLight);
+
+            // Material Setup (Premium look)
+            const panelMaterial = new THREE.MeshPhysicalMaterial({
+                color: 0xf4f4f8,
+                metalness: 0.2,
+                roughness: 0.3,
+                clearcoat: 0.4,
+                clearcoatRoughness: 0.2,
+                side: THREE.DoubleSide
+            });
+
+            // Geometry shapes
+            const baseShape = new THREE.Shape();
+            baseShape.moveTo(0, R_SMALL);
+            baseShape.lineTo(L/2, -r_SMALL);
+            baseShape.lineTo(-L/2, -r_SMALL);
+            baseShape.lineTo(0, R_SMALL);
+            const baseGeo = new THREE.ShapeGeometry(baseShape);
+
+            const flapShape = new THREE.Shape();
+            flapShape.moveTo(-L/2, 0);
+            flapShape.lineTo(L/2, 0);
+            flapShape.lineTo(0, -H_SMALL);
+            flapShape.lineTo(-L/2, 0);
+            const flapGeo = new THREE.ShapeGeometry(flapShape);
+
+            const shrinkScale = 0.97; // Give a tiny gap between faces for visual crispness
+            const offsetX = (cols - 1) * L / 2;
+            const offsetY = (rows - 1) * H_LARGE / 2;
+
+            // Generate Alternating Tessellation Grid
+            for (let j = 0; j < rows; j++) {
+                for (let i = 0; i < cols; i++) {
+                    const isLargeUp = (i + j) % 2 === 0;
+                    let x = i * L;
+                    let y = j * H_LARGE;
+                    
+                    if (!isLargeUp) {
+                        y += H_LARGE / 3;
+                    }
+
+                    const group = new THREE.Group();
+                    
+                    const baseMesh = new THREE.Mesh(baseGeo, panelMaterial);
+                    baseMesh.scale.set(shrinkScale, shrinkScale, shrinkScale);
+                    baseMesh.castShadow = true;
+                    baseMesh.receiveShadow = true;
+                    group.add(baseMesh);
+
+                    const hinges = [];
+                    for(let k = 0; k < 3; k++) {
+                        const pivotGroup = new THREE.Group();
+                        pivotGroup.rotation.z = k * (Math.PI * 2 / 3); 
+                        
+                        const hinge = new THREE.Group();
+                        hinge.position.y = -r_SMALL; 
+                        
+                        const flap = new THREE.Mesh(flapGeo, panelMaterial);
+                        flap.scale.set(shrinkScale, shrinkScale, shrinkScale);
+                        flap.castShadow = true;
+                        flap.receiveShadow = true;
+                        
+                        hinge.add(flap);
+                        pivotGroup.add(hinge);
+                        group.add(pivotGroup);
+                        
+                        hinges.push(hinge);
+                    }
+                    
+                    if (isLargeUp) {
+                        group.rotation.z = Math.PI; 
+                    }
+
+                    const posX = x - offsetX;
+                    const posY = y - offsetY;
+                    group.position.set(posX, posY, 0);
+                    scene.add(group);
+
+                    // Pre-calculate data for specific animations
+                    const distCenter = Math.sqrt(posX * posX + posY * posY);
+                    const angleCenter = Math.atan2(posY, posX);
+                    const randomPhase = Math.random() * Math.PI * 2;
+
+                    modules.push({
+                        group: group,
+                        hinges: hinges,
+                        currentAngle: 0,
+                        originalX: posX,
+                        originalY: posY,
+                        distCenter: distCenter,
+                        angleCenter: angleCenter,
+                        randomPhase: randomPhase,
+                        isLargeUp: isLargeUp,
+                        trailHeat: 0,
+                        glitchTimer: 0
+                    });
+                }
+            }
+
+            // Invisible plane for precise raycasting
+            const intGeo = new THREE.PlaneGeometry(500, 500);
+            const intMat = new THREE.MeshBasicMaterial({ visible: false });
+            intersectionPlane = new THREE.Mesh(intGeo, intMat);
+            scene.add(intersectionPlane);
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2(-1000, -1000);
+            targetPoint = new THREE.Vector3(-1000, -1000, 0);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 + 0.1;
+
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('pointermove', onPointerMove);
+            window.addEventListener('pointerdown', onPointerDown);
+        }
+
+        // --- UI Logic ---
+        function setMode(modeId) {
+            currentMode = modeId;
+            document.querySelectorAll('.button-group button').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-mode-${modeId}`).classList.add('active');
+            
+            // Reset temporary states
+            ripples = [];
+            targetPoint.set(-1000, -1000, 0);
+        }
+
+        // --- Event Listeners ---
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function onPointerMove(event) {
+            // Normalize mouse coordinates for Raycaster
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            if (currentMode === 1 || currentMode === 13) { 
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObject(intersectionPlane);
+                if (intersects.length > 0) {
+                    targetPoint.copy(intersects[0].point);
+                } else {
+                    targetPoint.set(-1000, -1000, 0);
+                }
+            }
+        }
+
+        function onPointerDown(event) {
+            if (currentMode === 2) { // Ripple Mode
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObject(intersectionPlane);
+                
+                if (intersects.length > 0) {
+                    ripples.push({
+                        center: intersects[0].point.clone(),
+                        radius: 0,
+                        maxRadius: 30,     
+                        speed: 0.4,       
+                        thickness: 4.5     
+                    });
+                }
+            }
+        }
+
+        // --- Animation Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+
+            // Process Ripple Expansion First
+            if (currentMode === 2) {
+                for (let i = ripples.length - 1; i >= 0; i--) {
+                    ripples[i].radius += ripples[i].speed;
+                    if (ripples[i].radius > ripples[i].maxRadius) {
+                        ripples.splice(i, 1);
+                    }
+                }
+            }
+
+            // Loop through all modules and calculate their target angles
+            modules.forEach(mod => {
+                let targetAngle = 0;
+
+                switch(currentMode) {
+                    case 1: // HOVER
+                        const effectRadius = L * 5.0; 
+                        const dist = targetPoint.distanceTo(mod.group.position);
+                        if (dist < effectRadius) {
+                            const intensity = 1.0 - (dist / effectRadius);
+                            targetAngle = MAX_FOLD_ANGLE * (intensity * intensity); 
+                        }
+                        break;
+
+                    case 2: // RIPPLE
+                        let maxRippleEffect = 0;
+                        for (let r of ripples) {
+                            const distToCenter = mod.group.position.distanceTo(r.center);
+                            const distToRing = Math.abs(distToCenter - r.radius);
+                            
+                            if (distToRing < r.thickness) {
+                                let intensity = Math.cos((distToRing / r.thickness) * (Math.PI / 2));
+                                let fadeOut = Math.max(0, 1.0 - (r.radius / r.maxRadius));
+                                let effect = intensity * fadeOut;
+                                if (effect > maxRippleEffect) maxRippleEffect = effect;
+                            }
+                        }
+                        targetAngle = MAX_FOLD_ANGLE * maxRippleEffect;
+                        break;
+
+                    case 3: // AUTO WAVE
+                        const freqX = 0.2;
+                        const freqY = 0.25;
+                        const waveSpeed = 2.0;
+                        let waveVal = Math.sin(mod.originalX * freqX + time * waveSpeed) + 
+                                      Math.cos(mod.originalY * freqY + time * waveSpeed * 0.8);
+                        let normalizedVal = Math.max(0, Math.min(1, (waveVal + 2) / 4));
+                        targetAngle = MAX_FOLD_ANGLE * (normalizedVal * normalizedVal);
+                        break;
+                    
+                    case 4: // BREATHING
+                        // Global synchronized wave
+                        let breathVal = Math.sin(time * 1.5) * 0.5 + 0.5;
+                        targetAngle = MAX_FOLD_ANGLE * (breathVal * breathVal);
+                        break;
+                    
+                    case 5: // TWINKLE
+                        // Random phase per module creates a chaotic/organic fluttering effect
+                        let twinkVal = Math.sin(time * 2.5 + mod.randomPhase) * 0.5 + 0.5;
+                        // Power of 3 makes the opening sharp and the close smooth
+                        targetAngle = MAX_FOLD_ANGLE * Math.pow(twinkVal, 3);
+                        break;
+
+                    case 6: // SPIRAL
+                        // Combine distance and polar angle to create a spiral
+                        let spiralWave = Math.sin(mod.distCenter * 0.4 - time * 3.0 + mod.angleCenter * 2.0);
+                        let spiralNorm = Math.max(0, spiralWave); // Only positive peaks
+                        targetAngle = MAX_FOLD_ANGLE * spiralNorm;
+                        break;
+                    
+                    case 7: // ALTERNATING
+                        // Modulo logic creates checkerboard/opposing phases based on orientation
+                        let phaseAlt = mod.isLargeUp ? Math.sin(time * 2.5) : Math.cos(time * 2.5);
+                        let normAlt = phaseAlt * 0.5 + 0.5;
+                        targetAngle = MAX_FOLD_ANGLE * normAlt;
+                        break;
+
+                    case 8: // SWEEP
+                        // Oscillating focal point across the X axis
+                        let scanX = Math.sin(time * 1.5) * (gridWidth * 0.45);
+                        let distScan = Math.abs(mod.originalX - scanX);
+                        // Thickness of the sweeping scanner
+                        let scanThickness = L * 4.0;
+                        let sweepVal = Math.max(0, 1.0 - (distScan / scanThickness));
+                        targetAngle = MAX_FOLD_ANGLE * (sweepVal * sweepVal);
+                        break;
+                        
+                    case 9: // DIAGONAL
+                        let diagWave = Math.sin((mod.originalX + mod.originalY) * 0.3 - time * 3.0);
+                        targetAngle = MAX_FOLD_ANGLE * Math.max(0, diagWave);
+                        break;
+
+                    case 10: // HEARTBEAT
+                        // Double beat rhythm using modulo timing mapped radially
+                        let localT = (time * 1.5 - mod.distCenter * 0.08) % 1.5;
+                        if (localT < 0) localT += 1.5;
+                        let beatVal = 0;
+                        if (localT < 0.15) {
+                            beatVal = localT / 0.15; // Fast open
+                        } else if (localT < 0.3) {
+                            beatVal = 1.0 - ((localT - 0.15) / 0.15) * 0.6;  // Slight close
+                        } else if (localT < 0.45) {
+                            beatVal = 0.4 + ((localT - 0.3) / 0.15) * 0.6; // Fast open 2
+                        } else if (localT < 0.7) {
+                            beatVal = 1.0 - ((localT - 0.45) / 0.25); // Full close
+                        }
+                        targetAngle = MAX_FOLD_ANGLE * Math.max(0, beatVal);
+                        break;
+
+                    case 11: // GLITCH
+                        // Random sporadic snappy movements
+                        if (Math.random() < 0.005) mod.glitchTimer = Math.floor(Math.random() * 10) + 5;
+                        if (mod.glitchTimer > 0) {
+                            targetAngle = Math.random() > 0.3 ? MAX_FOLD_ANGLE : 0;
+                            mod.glitchTimer--;
+                        } else {
+                            targetAngle = 0;
+                        }
+                        break;
+
+                    case 12: // RESONANCE
+                        // Intersecting sine waves creating interference patterns
+                        let w1 = Math.sin(mod.distCenter * 0.2 - time * 2.0);
+                        let w2 = Math.sin((mod.originalX * 0.3) + time * 1.5);
+                        let w3 = Math.cos((mod.originalY * 0.3) - time * 1.2);
+                        let resVal = (w1 + w2 + w3) / 3.0;
+                        targetAngle = MAX_FOLD_ANGLE * (resVal > 0 ? resVal * resVal : 0);
+                        break;
+
+                    case 13: // TRAIL
+                        const tRadius = L * 4.0;
+                        const d = targetPoint.distanceTo(mod.group.position);
+                        if (d < tRadius) {
+                            mod.trailHeat = 1.0; 
+                        } else {
+                            mod.trailHeat = Math.max(0, mod.trailHeat - 0.015); // Slow decay
+                        }
+                        targetAngle = MAX_FOLD_ANGLE * (mod.trailHeat * mod.trailHeat);
+                        break;
+                }
+
+                // SMOOTH LERPING OR SNAPPING
+                if (currentMode === 11) {
+                    mod.currentAngle = targetAngle; // Snap instantly for glitch effect without smoothing
+                } else {
+                    // This ensures all transitions between modes and states remain buttery smooth
+                    mod.currentAngle += (targetAngle - mod.currentAngle) * 0.12;
+                }
+
+                // Apply the calculated rotation to the 3 flaps
+                mod.hinges.forEach(hinge => {
+                    hinge.rotation.x = mod.currentAngle;
+                });
+            });
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
