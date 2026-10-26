@@ -270,7 +270,11 @@
         function initThreeJS() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x121212); 
-            scene.fog = new THREE.FogExp2(0x121212, 0.015);
+            
+            // REVISI FOG: Menggunakan Linear Fog dengan jangkauan 150 hingga 1000
+            // Agar saat dizoom-out layar tidak langsung menjadi gelap/buram.
+            scene.fog = new THREE.Fog(0x121212, 150, 1000); 
+
             clock = new THREE.Clock();
 
             camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 1000);
