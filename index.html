@@ -3,160 +3,136 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Kinetic Facade - AeroFasad</title>
+    <title>3D Kinetic Facade - Interactive Silhouette</title>
     <style>
         body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
+            margin: 0; padding: 0; overflow: hidden;
             background-color: #121212; 
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            touch-action: none; 
-            user-select: none;
-            -webkit-user-select: none;
+            touch-action: none; user-select: none; -webkit-user-select: none;
         }
         
-        canvas {
-            display: block;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 1;
+        canvas.three-canvas {
+            display: block; position: fixed; top: 0; left: 0;
+            width: 100vw; height: 100vh; z-index: 1;
         }
         
         #credits-panel {
-            position: absolute;
-            top: 25px;
-            left: 30px;
-            z-index: 10;
-            pointer-events: none;
+            position: absolute; top: 25px; left: 30px;
+            z-index: 10; pointer-events: none;
         }
         
-        #credits-panel .project-title {
-            color: #8ab4f8; 
-            font-size: 36px;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-            margin-bottom: 10px;
+        #credits-panel .project-title { color: #8ab4f8; font-size: 36px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 10px; }
+        #credits-panel .creators { color: #9aa0a6; font-size: 16px; line-height: 1.6; font-weight: 400; }
+
+        /* Panel Kamera - Ditambahkan cursor grab dan touch-action */
+        #webcam-container {
+            position: absolute; top: 25px; right: 30px;
+            z-index: 10; width: 200px; height: 150px;
+            border-radius: 12px; overflow: hidden;
+            border: 2px solid rgba(138, 180, 248, 0.4);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            background: #1e1e1e; 
+            cursor: grab; /* Indikator bisa digeser */
+            touch-action: none; /* Mencegah scroll default saat disentuh */
         }
         
-        #credits-panel .creators {
-            color: #9aa0a6; 
-            font-size: 16px;
-            line-height: 1.6;
-            font-weight: 400;
+        #webcam-container:active {
+            cursor: grabbing;
+        }
+        
+        #input_video, #output_canvas {
+            width: 100%; height: 100%; object-fit: cover;
+            transform: scaleX(-1); position: absolute; top: 0; left: 0;
+            pointer-events: none; /* Agar klik diteruskan ke container */
+        }
+        #input_video { display: none; }
+
+        #camera-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: rgba(0,0,0,0.7); z-index: 5; text-align: center; backdrop-filter: blur(3px);
+            pointer-events: none; /* Agar area overlay bisa di-drag */
         }
 
+        #btn-start-camera, #btn-stop-camera {
+            pointer-events: auto; /* Memastikan tombol tetap bisa diklik */
+        }
+
+        #btn-start-camera {
+            background: #8ab4f8; color: #121212; border: none;
+            padding: 8px 15px; font-size: 12px; font-weight: 700;
+            border-radius: 8px; cursor: pointer; transition: 0.2s;
+        }
+        #btn-start-camera:hover { background: #aecbfa; transform: scale(1.05); }
+
+        #btn-stop-camera {
+            position: absolute; bottom: 8px; right: 8px; z-index: 10;
+            background: rgba(220, 53, 69, 0.85); color: white; border: none;
+            padding: 5px 10px; font-size: 10px; font-weight: 600;
+            border-radius: 6px; cursor: pointer; transition: 0.2s;
+            display: none;
+        }
+        #btn-stop-camera:hover { background: rgba(220, 53, 69, 1); transform: scale(1.05); }
+
+        #loading-text { color: #ffb74d; font-size: 12px; font-weight: 600; display: none; padding: 10px; }
+
         #ui-container {
-            position: absolute;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 15px;
-            pointer-events: auto;
-            z-index: 10;
-            width: 90%;
-            max-width: 800px;
+            position: absolute; bottom: 30px; left: 50%;
+            transform: translateX(-50%); display: flex;
+            flex-direction: column; align-items: center; gap: 15px;
+            pointer-events: auto; z-index: 10; width: 90%; max-width: 800px;
         }
 
         .slider-container {
-            display: flex;
-            justify-content: center;
-            background: rgba(30, 30, 35, 0.5);
-            padding: 12px 25px;
-            border-radius: 20px;
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border: 1px solid rgba(255,255,255,0.1);
-            width: 100%;
-            box-sizing: border-box;
+            display: flex; justify-content: center;
+            background: rgba(30, 30, 35, 0.5); padding: 12px 25px;
+            border-radius: 20px; backdrop-filter: blur(15px);
+            border: 1px solid rgba(255,255,255,0.1); width: 100%; box-sizing: border-box;
         }
 
-        .slider-group {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 100%;
-            max-width: 400px;
-        }
-
-        .slider-group label {
-            color: rgba(255,255,255,0.9);
-            font-size: 13px;
-            margin-bottom: 8px;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-        }
-
-        .slider-group input[type="range"] {
-            width: 100%;
-            cursor: pointer;
-            accent-color: #8ab4f8;
-        }
+        .slider-group { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 400px; }
+        .slider-group label { color: rgba(255,255,255,0.9); font-size: 13px; margin-bottom: 8px; font-weight: 600; }
+        .slider-group input[type="range"] { width: 100%; cursor: pointer; accent-color: #8ab4f8; }
 
         .button-group {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 8px;
-            background: rgba(30, 30, 35, 0.5);
-            padding: 12px;
-            border-radius: 20px;
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border: 1px solid rgba(255,255,255,0.1);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.6);
-            width: 100%;
-            box-sizing: border-box;
+            display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+            background: rgba(30, 30, 35, 0.5); padding: 12px;
+            border-radius: 20px; backdrop-filter: blur(15px);
+            border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+            width: 100%; box-sizing: border-box;
         }
 
-        button {
-            flex: 1 1 calc(20% - 10px); 
-            min-width: 85px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid transparent;
-            color: rgba(255,255,255,0.7);
-            padding: 12px 15px;
-            border-radius: 12px;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-            letter-spacing: 0.5px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
+        button.mode-btn {
+            flex: 1 1 calc(20% - 10px); min-width: 85px;
+            background: rgba(255, 255, 255, 0.05); border: 1px solid transparent;
+            color: rgba(255,255,255,0.7); padding: 12px 15px;
+            border-radius: 12px; font-size: 13px; font-weight: 500; cursor: pointer;
+            transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; text-align: center;
         }
 
-        button:hover {
-            color: #ffffff;
-            background: rgba(255,255,255,0.15);
-            transform: translateY(-2px);
+        button.mode-btn:hover { color: #ffffff; background: rgba(255,255,255,0.15); transform: translateY(-2px); }
+        button.mode-btn.active {
+            background: #ffffff; color: #121212; border: 1px solid #ffffff;
+            box-shadow: 0 5px 15px rgba(255,255,255,0.25); font-weight: 600; transform: translateY(-2px);
         }
 
-        button.active {
-            background: #ffffff;
-            color: #121212;
-            border: 1px solid #ffffff;
-            box-shadow: 0 5px 15px rgba(255,255,255,0.25);
-            font-weight: 600;
-            transform: translateY(-2px);
-        }
-
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
             #credits-panel { top: 15px; left: 15px; }
             #credits-panel .project-title { font-size: 24px; margin-bottom: 5px;}
             #credits-panel .creators { font-size: 12px; }
-            button { flex: 1 1 calc(33% - 10px); font-size: 11px; padding: 8px; min-width: auto; }
+            #webcam-container { top: 15px; right: 15px; width: 120px; height: 90px; }
+            button.mode-btn { flex: 1 1 calc(33% - 10px); font-size: 11px; padding: 8px; min-width: auto; }
             #ui-container { bottom: 15px; }
         }
     </style>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
@@ -170,8 +146,18 @@
         </div>
     </div>
 
+    <!-- Webcam Preview UI -->
+    <div id="webcam-container">
+        <video id="input_video"></video>
+        <canvas id="output_canvas" width="320" height="240"></canvas>
+        <button id="btn-stop-camera" onclick="stopCamera()">Matikan</button>
+        <div id="camera-overlay">
+            <button id="btn-start-camera" onclick="startMediaPipe()">Aktifkan Kamera</button>
+            <div id="loading-text">Memuat AI Tubuh...<br>Tunggu Sebentar</div>
+        </div>
+    </div>
+
     <div id="ui-container">
-        <!-- Slider Tunggal dengan Label Baru -->
         <div class="slider-container">
             <div class="slider-group">
                 <label for="speed-facade">Responsivitas</label>
@@ -180,56 +166,108 @@
         </div>
 
         <div class="button-group">
-            <button id="btn-mode-1" class="active" onclick="setMode(1)">Hover</button>
-            <button id="btn-mode-2" onclick="setMode(2)">Ripple</button>
-            <button id="btn-mode-3" onclick="setMode(3)">Wave</button>
-            <button id="btn-mode-4" onclick="setMode(4)">Breathing</button>
-            <button id="btn-mode-5" onclick="setMode(5)">Twinkle</button>
-            <button id="btn-mode-6" onclick="setMode(6)">Spiral</button>
-            <button id="btn-mode-7" onclick="setMode(7)">Alternating</button>
-            <button id="btn-mode-8" onclick="setMode(8)">Sweep</button>
-            <button id="btn-mode-9" onclick="setMode(9)">Diagonal</button>
-            <button id="btn-mode-10" onclick="setMode(10)">Heartbeat</button>
-            <button id="btn-mode-11" onclick="setMode(11)">Glitch</button>
-            <button id="btn-mode-12" onclick="setMode(12)">Resonance</button>
-            <button id="btn-mode-13" onclick="setMode(13)">Trail</button>
+            <button id="btn-mode-1" class="mode-btn active" onclick="setMode(1)">Silhouette</button>
+            <button id="btn-mode-2" class="mode-btn" onclick="setMode(2)">Ripple Impact</button>
+            <button id="btn-mode-3" class="mode-btn" onclick="setMode(3)">Wave</button>
+            <button id="btn-mode-4" class="mode-btn" onclick="setMode(4)">Breathing</button>
+            <button id="btn-mode-5" class="mode-btn" onclick="setMode(5)">Twinkle</button>
+            <button id="btn-mode-6" class="mode-btn" onclick="setMode(6)">Vortex</button>
+            <button id="btn-mode-7" class="mode-btn" onclick="setMode(7)">Alternating</button>
+            <button id="btn-mode-8" class="mode-btn" onclick="setMode(8)">Scanner</button>
+            <button id="btn-mode-9" class="mode-btn" onclick="setMode(9)">Diagonal</button>
+            <button id="btn-mode-10" class="mode-btn" onclick="setMode(10)">Heartbeat</button>
+            <button id="btn-mode-11" class="mode-btn" onclick="setMode(11)">Glitch</button>
+            <button id="btn-mode-12" class="mode-btn" onclick="setMode(12)">Resonance</button>
+            <button id="btn-mode-13" class="mode-btn" onclick="setMode(13)">Aura Trail</button>
         </div>
     </div>
 
-    <!-- Three.js Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-
     <script>
+        // ==========================================
+        // FITUR DRAG-AND-DROP PANEL KAMERA
+        // ==========================================
+        const dragEl = document.getElementById('webcam-container');
+        let isDraggingPanel = false, startX, startY, initialLeft, initialTop;
+
+        dragEl.addEventListener('pointerdown', (e) => {
+            // Abaikan jika yang diklik adalah tombol
+            if (e.target.tagName.toLowerCase() === 'button') return;
+            
+            isDraggingPanel = true;
+            const rect = dragEl.getBoundingClientRect();
+            
+            // Ubah posisi berbasis 'right' menjadi 'left' agar hitungan drag akurat
+            dragEl.style.right = 'auto'; 
+            dragEl.style.left = rect.left + 'px';
+            dragEl.style.top = rect.top + 'px';
+
+            startX = e.clientX;
+            startY = e.clientY;
+            initialLeft = rect.left;
+            initialTop = rect.top;
+
+            dragEl.setPointerCapture(e.pointerId); // Kunci pointer ke elemen ini
+            e.stopPropagation(); // Cegah OrbitControls ikut berputar
+        });
+
+        dragEl.addEventListener('pointermove', (e) => {
+            if (!isDraggingPanel) return;
+            
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            
+            let newLeft = initialLeft + dx;
+            let newTop = initialTop + dy;
+
+            // Pastikan panel tidak keluar dari layar
+            newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - dragEl.offsetWidth));
+            newTop = Math.max(0, Math.min(newTop, window.innerHeight - dragEl.offsetHeight));
+
+            dragEl.style.left = newLeft + 'px';
+            dragEl.style.top = newTop + 'px';
+            
+            e.stopPropagation(); // Cegah interaksi background saat menggeser
+        });
+
+        dragEl.addEventListener('pointerup', (e) => {
+            if(isDraggingPanel) {
+                isDraggingPanel = false;
+                dragEl.releasePointerCapture(e.pointerId);
+            }
+        });
+
+
+        // ==========================================
+        // SISTEM 3D THREE.JS 
+        // ==========================================
         let scene, camera, renderer, controls;
         let modules = [];
         let raycaster, mouse;
-        let intersectionPlane, targetPoint;
+        let intersectionPlane, targetPoint; 
+        
+        let bodySegments = []; 
+        let camera_mp = null; 
+        let isCameraActive = false;
+        
         let clock;
-
-        // State Management
         let currentMode = 1; 
         let ripples = []; 
         let facadeSpeed = 0.1;
+        let isClapping = false;
 
         const L = 1.5; 
         const H_SMALL = L * Math.sqrt(3) / 2; 
         const R_SMALL = L / Math.sqrt(3); 
         const r_SMALL = L / (2 * Math.sqrt(3)); 
-        
         const S = 2 * L; 
         const H_LARGE = S * Math.sqrt(3) / 2; 
-
         const MAX_FOLD_ANGLE = 2.0; 
-        
-        const cols = 26;
-        const rows = 16;
-        const gridWidth = cols * L;
+        const cols = 26, rows = 16, gridWidth = cols * L;
 
-        init();
+        initThreeJS();
         animate();
 
-        function init() {
+        function initThreeJS() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x121212); 
             scene.fog = new THREE.FogExp2(0x121212, 0.015);
@@ -242,128 +280,65 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.domElement.classList.add('three-canvas');
             document.body.appendChild(renderer.domElement);
 
             const speedSlider = document.getElementById('speed-facade');
-            if(speedSlider) {
-                speedSlider.addEventListener('input', (e) => facadeSpeed = parseFloat(e.target.value));
-            }
+            if(speedSlider) speedSlider.addEventListener('input', (e) => facadeSpeed = parseFloat(e.target.value));
 
             scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-
             const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
             dirLight.position.set(15, 25, 30);
-            dirLight.castShadow = true;
-            dirLight.shadow.mapSize.width = 2048;
-            dirLight.shadow.mapSize.height = 2048;
-            dirLight.shadow.camera.near = 0.5;
-            dirLight.shadow.camera.far = 150;
-            const shadowD = 35;
-            dirLight.shadow.camera.left = -shadowD;
-            dirLight.shadow.camera.right = shadowD;
-            dirLight.shadow.camera.top = shadowD;
-            dirLight.shadow.camera.bottom = -shadowD;
-            dirLight.shadow.bias = -0.0005;
             scene.add(dirLight);
-
             const fillLight = new THREE.DirectionalLight(0x88bbff, 0.5);
             fillLight.position.set(-15, -15, 10);
             scene.add(fillLight);
 
-            const panelMaterial = new THREE.MeshPhysicalMaterial({
-                color: 0xf4f4f8,
-                metalness: 0.2,
-                roughness: 0.3,
-                clearcoat: 0.4,
-                clearcoatRoughness: 0.2,
-                side: THREE.DoubleSide
-            });
+            const panelMaterial = new THREE.MeshPhysicalMaterial({ color: 0xf4f4f8, metalness: 0.2, roughness: 0.3, side: THREE.DoubleSide });
 
             const baseShape = new THREE.Shape();
-            baseShape.moveTo(0, R_SMALL);
-            baseShape.lineTo(L/2, -r_SMALL);
-            baseShape.lineTo(-L/2, -r_SMALL);
-            baseShape.lineTo(0, R_SMALL);
+            baseShape.moveTo(0, R_SMALL); baseShape.lineTo(L/2, -r_SMALL); baseShape.lineTo(-L/2, -r_SMALL); baseShape.lineTo(0, R_SMALL);
             const baseGeo = new THREE.ShapeGeometry(baseShape);
-
             const flapShape = new THREE.Shape();
-            flapShape.moveTo(-L/2, 0);
-            flapShape.lineTo(L/2, 0);
-            flapShape.lineTo(0, -H_SMALL);
-            flapShape.lineTo(-L/2, 0);
+            flapShape.moveTo(-L/2, 0); flapShape.lineTo(L/2, 0); flapShape.lineTo(0, -H_SMALL); flapShape.lineTo(-L/2, 0);
             const flapGeo = new THREE.ShapeGeometry(flapShape);
 
             const shrinkScale = 0.97;
-            const offsetX = (cols - 1) * L / 2;
-            const offsetY = (rows - 1) * H_LARGE / 2;
+            const offsetX = (cols - 1) * L / 2, offsetY = (rows - 1) * H_LARGE / 2;
 
             for (let j = 0; j < rows; j++) {
                 for (let i = 0; i < cols; i++) {
                     const isLargeUp = (i + j) % 2 === 0;
-                    let x = i * L;
-                    let y = j * H_LARGE;
-                    
-                    if (!isLargeUp) {
-                        y += H_LARGE / 3;
-                    }
+                    let x = i * L, y = j * H_LARGE;
+                    if (!isLargeUp) y += H_LARGE / 3;
 
                     const group = new THREE.Group();
-                    
                     const baseMesh = new THREE.Mesh(baseGeo, panelMaterial);
                     baseMesh.scale.set(shrinkScale, shrinkScale, shrinkScale);
-                    baseMesh.castShadow = true;
-                    baseMesh.receiveShadow = true;
                     group.add(baseMesh);
 
                     const hinges = [];
                     for(let k = 0; k < 3; k++) {
                         const pivotGroup = new THREE.Group();
                         pivotGroup.rotation.z = k * (Math.PI * 2 / 3); 
-                        
                         const hinge = new THREE.Group();
                         hinge.position.y = -r_SMALL; 
-                        
                         const flap = new THREE.Mesh(flapGeo, panelMaterial);
                         flap.scale.set(shrinkScale, shrinkScale, shrinkScale);
-                        flap.castShadow = true;
-                        flap.receiveShadow = true;
-                        
-                        hinge.add(flap);
-                        pivotGroup.add(hinge);
-                        group.add(pivotGroup);
-                        
+                        hinge.add(flap); pivotGroup.add(hinge); group.add(pivotGroup);
                         hinges.push(hinge);
                     }
                     
-                    if (isLargeUp) {
-                        group.rotation.z = Math.PI; 
-                    }
-
-                    const posX = x - offsetX;
-                    const posY = y - offsetY;
+                    if (isLargeUp) group.rotation.z = Math.PI; 
+                    const posX = x - offsetX, posY = y - offsetY;
                     group.position.set(posX, posY, 0);
                     scene.add(group);
 
-                    modules.push({
-                        group: group,
-                        hinges: hinges,
-                        currentAngle: 0,
-                        originalX: posX,
-                        originalY: posY,
-                        distCenter: Math.sqrt(posX * posX + posY * posY),
-                        angleCenter: Math.atan2(posY, posX),
-                        randomPhase: Math.random() * Math.PI * 2,
-                        isLargeUp: isLargeUp,
-                        trailHeat: 0,
-                        glitchTimer: 0
-                    });
+                    modules.push({ group, hinges, currentAngle: 0, originalX: posX, originalY: posY, distCenter: Math.sqrt(posX * posX + posY * posY), angleCenter: Math.atan2(posY, posX), randomPhase: Math.random() * Math.PI * 2, isLargeUp, trailHeat: 0, glitchTimer: 0 });
                 }
             }
 
-            const intGeo = new THREE.PlaneGeometry(500, 500);
-            const intMat = new THREE.MeshBasicMaterial({ visible: false });
-            intersectionPlane = new THREE.Mesh(intGeo, intMat);
+            intersectionPlane = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), new THREE.MeshBasicMaterial({ visible: false }));
             scene.add(intersectionPlane);
 
             raycaster = new THREE.Raycaster();
@@ -371,61 +346,174 @@
             targetPoint = new THREE.Vector3(-1000, -1000, 0);
 
             controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
-            controls.maxPolarAngle = Math.PI / 2 + 0.1;
+            controls.enableDamping = true; controls.dampingFactor = 0.05; controls.maxPolarAngle = Math.PI / 2 + 0.1;
 
             window.addEventListener('resize', onWindowResize);
-            window.addEventListener('pointermove', onPointerMove);
-            window.addEventListener('pointerdown', onPointerDown);
+            window.addEventListener('pointermove', onPointerMove); 
+            window.addEventListener('pointerdown', onPointerDown); 
         }
 
+        // ==========================================
+        // FUNGSI MATEMATIKA UNTUK TUBUH SOLID
+        // ==========================================
+        function getDistanceToSegment(p, v, w) {
+            const l2 = v.distanceToSquared(w);
+            if (l2 === 0) return p.distanceTo(v);
+            let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y) + (p.z - v.z) * (w.z - v.z)) / l2;
+            t = Math.max(0, Math.min(1, t));
+            const proj = new THREE.Vector3( v.x + t * (w.x - v.x), v.y + t * (w.y - v.y), v.z + t * (w.z - v.z) );
+            return p.distanceTo(proj);
+        }
+
+        // ==========================================
+        // SISTEM MEDIAPIPE
+        // ==========================================
+        const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
+        pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
+
+        pose.onResults((results) => {
+            if (!isCameraActive) return;
+
+            const overlay = document.getElementById('camera-overlay');
+            const canvasElement = document.getElementById('output_canvas');
+            const canvasCtx = canvasElement.getContext('2d');
+            
+            overlay.style.display = 'none';
+            document.getElementById('btn-stop-camera').style.display = 'block'; 
+            
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+            if (results.poseLandmarks) {
+                const landmarks = results.poseLandmarks;
+                
+                if(typeof POSE_CONNECTIONS !== 'undefined') {
+                    drawConnectors(canvasCtx, landmarks, POSE_CONNECTIONS, {color: '#8ab4f8', lineWidth: 2});
+                    drawLandmarks(canvasCtx, landmarks, {color: '#ffffff', lineWidth: 1, radius: 2});
+                    
+                    bodySegments = [];
+                    const get3DPoint = (lm) => {
+                        if(!lm || lm.visibility < 0.5) return null;
+                        let ndcX = -(lm.x * 2 - 1); let ndcY = -(lm.y * 2 - 1);
+                        raycaster.setFromCamera({x: ndcX, y: ndcY}, camera);
+                        const intersects = raycaster.intersectObject(intersectionPlane);
+                        return intersects.length > 0 ? intersects[0].point : null;
+                    };
+
+                    for (const connection of POSE_CONNECTIONS) {
+                        const pt1 = get3DPoint(landmarks[connection[0]]);
+                        const pt2 = get3DPoint(landmarks[connection[1]]);
+                        if (pt1 && pt2) bodySegments.push({v: pt1, w: pt2});
+                    }
+
+                    const pLShoulder = get3DPoint(landmarks[11]), pRShoulder = get3DPoint(landmarks[12]);
+                    const pLHip = get3DPoint(landmarks[23]), pRHip = get3DPoint(landmarks[24]);
+                    if (pLShoulder && pRHip) bodySegments.push({v: pLShoulder, w: pRHip}); 
+                    if (pRShoulder && pLHip) bodySegments.push({v: pRShoulder, w: pLHip}); 
+                    if (pLShoulder && pRShoulder) bodySegments.push({v: pLShoulder, w: pRShoulder}); 
+                    if (pLHip && pRHip) bodySegments.push({v: pLHip, w: pRHip}); 
+                }
+
+                if (currentMode === 2) {
+                    const leftWrist = landmarks[15], rightWrist = landmarks[16];
+                    if(leftWrist && rightWrist) {
+                        const dist = Math.hypot(leftWrist.x - rightWrist.x, leftWrist.y - rightWrist.y);
+                        if (dist < 0.1) {
+                            if (!isClapping) { isClapping = true; triggerRippleBody(leftWrist); }
+                        } else {
+                            isClapping = false;
+                        }
+                    }
+                }
+            } else {
+                bodySegments = [];
+            }
+            canvasCtx.restore();
+        });
+
+        function startMediaPipe() {
+            const btn = document.getElementById('btn-start-camera');
+            const loadingText = document.getElementById('loading-text');
+            
+            btn.style.display = 'none';
+            loadingText.style.display = 'block';
+
+            try {
+                const videoElement = document.getElementById('input_video');
+                camera_mp = new Camera(videoElement, {
+                    onFrame: async () => { if(isCameraActive) await pose.send({image: videoElement}); }, 
+                    width: 320, height: 240
+                });
+                
+                isCameraActive = true;
+                camera_mp.start().catch(err => { 
+                    loadingText.innerHTML = "Kamera Ditolak"; 
+                    isCameraActive = false;
+                    btn.style.display = 'block';
+                    btn.innerText = "Coba Lagi";
+                });
+            } catch (e) {
+                loadingText.innerHTML = "Gagal Memuat AI.";
+            }
+        }
+
+        function stopCamera() {
+            isCameraActive = false;
+            if (camera_mp) camera_mp.stop();
+            const videoElement = document.getElementById('input_video');
+            if (videoElement.srcObject) {
+                videoElement.srcObject.getTracks().forEach(track => track.stop());
+                videoElement.srcObject = null;
+            }
+            document.getElementById('btn-stop-camera').style.display = 'none';
+            document.getElementById('camera-overlay').style.display = 'flex';
+            
+            const startBtn = document.getElementById('btn-start-camera');
+            startBtn.style.display = 'block';
+            startBtn.innerText = "Nyalakan Ulang";
+            
+            document.getElementById('loading-text').style.display = 'none';
+            const canvasCtx = document.getElementById('output_canvas').getContext('2d');
+            canvasCtx.clearRect(0, 0, 320, 240);
+            bodySegments = [];
+        }
+
+        // ==========================================
+        // LOGIKA ANIMASI
+        // ==========================================
         function setMode(modeId) {
             currentMode = modeId;
-            document.querySelectorAll('.button-group button').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.button-group button.mode-btn').forEach(btn => btn.classList.remove('active'));
             document.getElementById(`btn-mode-${modeId}`).classList.add('active');
-            ripples = [];
-            targetPoint.set(-1000, -1000, 0);
+            ripples = []; targetPoint.set(-1000, -1000, 0); bodySegments = [];
         }
 
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
+        function onWindowResize() { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
 
         function onPointerMove(event) {
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-            if (currentMode === 1 || currentMode === 13) { 
-                raycaster.setFromCamera(mouse, camera);
-                const intersects = raycaster.intersectObject(intersectionPlane);
-                if (intersects.length > 0) {
-                    targetPoint.copy(intersects[0].point);
-                } else {
-                    targetPoint.set(-1000, -1000, 0);
-                }
-            }
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1; mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(intersectionPlane);
+            if (intersects.length > 0) targetPoint.copy(intersects[0].point);
         }
 
         function onPointerDown(event) {
             if (currentMode === 2) { 
-                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1; mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
                 raycaster.setFromCamera(mouse, camera);
                 const intersects = raycaster.intersectObject(intersectionPlane);
-                
                 if (intersects.length > 0) {
-                    ripples.push({
-                        center: intersects[0].point.clone(),
-                        radius: 0,
-                        maxRadius: 30,     
-                        speed: 0.4,        
-                        thickness: 4.5     
-                    });
+                    ripples.push({ center: intersects[0].point.clone(), radius: 0, maxRadius: 30, speed: 0.4, thickness: 4.5 });
                 }
             }
+        }
+
+        function triggerRippleBody(wristLandmark) {
+            let ndcX = -(wristLandmark.x * 2 - 1); let ndcY = -(wristLandmark.y * 2 - 1);
+            raycaster.setFromCamera({x: ndcX, y: ndcY}, camera);
+            const intersects = raycaster.intersectObject(intersectionPlane);
+            if (intersects.length > 0) ripples.push({ center: intersects[0].point.clone(), radius: 0, maxRadius: 35, speed: 0.5, thickness: 5.0 });
         }
 
         function animate() {
@@ -435,116 +523,55 @@
             if (currentMode === 2) {
                 for (let i = ripples.length - 1; i >= 0; i--) {
                     ripples[i].radius += ripples[i].speed;
-                    if (ripples[i].radius > ripples[i].maxRadius) {
-                        ripples.splice(i, 1);
-                    }
+                    if (ripples[i].radius > ripples[i].maxRadius) ripples.splice(i, 1);
                 }
             }
 
             modules.forEach(mod => {
                 let targetAngle = 0;
+                let minDistToBody = Infinity;
+                if (bodySegments.length > 0 && isCameraActive) {
+                    for (let seg of bodySegments) {
+                        const d = getDistanceToSegment(mod.group.position, seg.v, seg.w);
+                        if (d < minDistToBody) minDistToBody = d;
+                    }
+                } else {
+                    minDistToBody = targetPoint.distanceTo(mod.group.position);
+                }
 
                 switch(currentMode) {
-                    case 1: 
-                        const effectRadius = L * 5.0; 
-                        const dist = targetPoint.distanceTo(mod.group.position);
-                        if (dist < effectRadius) {
-                            const intensity = 1.0 - (dist / effectRadius);
-                            targetAngle = MAX_FOLD_ANGLE * (intensity * intensity); 
-                        }
-                        break;
+                    case 1: if (minDistToBody < (L * 5.5)) targetAngle = MAX_FOLD_ANGLE * Math.pow(1.0 - (minDistToBody / (L * 5.5)), 2); break;
                     case 2: 
                         let maxRippleEffect = 0;
                         for (let r of ripples) {
-                            const distToCenter = mod.group.position.distanceTo(r.center);
-                            const distToRing = Math.abs(distToCenter - r.radius);
-                            if (distToRing < r.thickness) {
-                                let intensity = Math.cos((distToRing / r.thickness) * (Math.PI / 2));
-                                let fadeOut = Math.max(0, 1.0 - (r.radius / r.maxRadius));
-                                let effect = intensity * fadeOut;
-                                if (effect > maxRippleEffect) maxRippleEffect = effect;
-                            }
+                            const distToRing = Math.abs(mod.group.position.distanceTo(r.center) - r.radius);
+                            if (distToRing < r.thickness) maxRippleEffect = Math.max(maxRippleEffect, Math.cos((distToRing / r.thickness) * (Math.PI / 2)) * Math.max(0, 1.0 - (r.radius / r.maxRadius)));
                         }
-                        targetAngle = MAX_FOLD_ANGLE * maxRippleEffect;
-                        break;
-                    case 3: 
-                        let waveVal = Math.sin(mod.originalX * 0.2 + time * 2.0) + Math.cos(mod.originalY * 0.25 + time * 1.6);
-                        let normalizedVal = Math.max(0, Math.min(1, (waveVal + 2) / 4));
-                        targetAngle = MAX_FOLD_ANGLE * (normalizedVal * normalizedVal);
-                        break;
-                    case 4: 
-                        let breathVal = Math.sin(time * 1.5) * 0.5 + 0.5;
-                        targetAngle = MAX_FOLD_ANGLE * (breathVal * breathVal);
-                        break;
-                    case 5: 
-                        let twinkVal = Math.sin(time * 2.5 + mod.randomPhase) * 0.5 + 0.5;
-                        targetAngle = MAX_FOLD_ANGLE * Math.pow(twinkVal, 3);
-                        break;
-                    case 6: 
-                        let spiralWave = Math.sin(mod.distCenter * 0.4 - time * 3.0 + mod.angleCenter * 2.0);
-                        targetAngle = MAX_FOLD_ANGLE * Math.max(0, spiralWave);
-                        break;
-                    case 7: 
-                        let phaseAlt = mod.isLargeUp ? Math.sin(time * 2.5) : Math.cos(time * 2.5);
-                        targetAngle = MAX_FOLD_ANGLE * (phaseAlt * 0.5 + 0.5);
-                        break;
-                    case 8: 
-                        let scanX = Math.sin(time * 1.5) * (gridWidth * 0.45);
-                        let distScan = Math.abs(mod.originalX - scanX);
-                        let sweepVal = Math.max(0, 1.0 - (distScan / (L * 4.0)));
-                        targetAngle = MAX_FOLD_ANGLE * (sweepVal * sweepVal);
-                        break;
-                    case 9: 
-                        let diagWave = Math.sin((mod.originalX + mod.originalY) * 0.3 - time * 3.0);
-                        targetAngle = MAX_FOLD_ANGLE * Math.max(0, diagWave);
-                        break;
+                        targetAngle = MAX_FOLD_ANGLE * maxRippleEffect; break;
+                    case 3: targetAngle = MAX_FOLD_ANGLE * Math.pow(Math.max(0, Math.min(1, (Math.sin(mod.originalX * 0.2 + time * 2.0) + Math.cos(mod.originalY * 0.25 + time * 1.6) + 2) / 4)), 2); break;
+                    case 4: targetAngle = MAX_FOLD_ANGLE * Math.pow(Math.sin(time * 1.5) * 0.5 + 0.5, 2); break;
+                    case 5: targetAngle = MAX_FOLD_ANGLE * Math.pow(Math.sin(time * 2.5 + mod.randomPhase) * 0.5 + 0.5, 3); break;
+                    case 6: targetAngle = MAX_FOLD_ANGLE * Math.max(0, Math.sin(mod.distCenter * 0.4 - time * 3.0 + mod.angleCenter * 2.0)); break;
+                    case 7: targetAngle = MAX_FOLD_ANGLE * ((mod.isLargeUp ? Math.sin(time * 2.5) : Math.cos(time * 2.5)) * 0.5 + 0.5); break;
+                    case 8: targetAngle = MAX_FOLD_ANGLE * Math.pow(Math.max(0, 1.0 - (Math.abs(mod.originalX - (Math.sin(time * 1.5) * (gridWidth * 0.45))) / (L * 4.0))), 2); break;
+                    case 9: targetAngle = MAX_FOLD_ANGLE * Math.max(0, Math.sin((mod.originalX + mod.originalY) * 0.3 - time * 3.0)); break;
                     case 10: 
-                        let localT = (time * 1.5 - mod.distCenter * 0.08) % 1.5;
-                        if (localT < 0) localT += 1.5;
+                        let localT = (time * 1.5 - mod.distCenter * 0.08) % 1.5; if (localT < 0) localT += 1.5;
                         let beatVal = 0;
-                        if (localT < 0.15) beatVal = localT / 0.15; 
-                        else if (localT < 0.3) beatVal = 1.0 - ((localT - 0.15) / 0.15) * 0.6; 
-                        else if (localT < 0.45) beatVal = 0.4 + ((localT - 0.3) / 0.15) * 0.6; 
-                        else if (localT < 0.7) beatVal = 1.0 - ((localT - 0.45) / 0.25); 
-                        targetAngle = MAX_FOLD_ANGLE * Math.max(0, beatVal);
-                        break;
+                        if (localT < 0.15) beatVal = localT / 0.15; else if (localT < 0.3) beatVal = 1.0 - ((localT - 0.15) / 0.15) * 0.6; else if (localT < 0.45) beatVal = 0.4 + ((localT - 0.3) / 0.15) * 0.6; else if (localT < 0.7) beatVal = 1.0 - ((localT - 0.45) / 0.25); 
+                        targetAngle = MAX_FOLD_ANGLE * Math.max(0, beatVal); break;
                     case 11: 
                         if (Math.random() < 0.005) mod.glitchTimer = Math.floor(Math.random() * 10) + 5;
-                        if (mod.glitchTimer > 0) {
-                            targetAngle = Math.random() > 0.3 ? MAX_FOLD_ANGLE : 0;
-                            mod.glitchTimer--;
-                        } else {
-                            targetAngle = 0;
-                        }
-                        break;
-                    case 12: 
-                        let w1 = Math.sin(mod.distCenter * 0.2 - time * 2.0);
-                        let w2 = Math.sin((mod.originalX * 0.3) + time * 1.5);
-                        let w3 = Math.cos((mod.originalY * 0.3) - time * 1.2);
-                        let resVal = (w1 + w2 + w3) / 3.0;
-                        targetAngle = MAX_FOLD_ANGLE * (resVal > 0 ? resVal * resVal : 0);
-                        break;
+                        if (mod.glitchTimer > 0) { targetAngle = Math.random() > 0.3 ? MAX_FOLD_ANGLE : 0; mod.glitchTimer--; } else targetAngle = 0; break;
+                    case 12: targetAngle = MAX_FOLD_ANGLE * Math.pow(Math.max(0, (Math.sin(mod.distCenter * 0.2 - time * 2.0) + Math.sin(mod.originalX * 0.3 + time * 1.5) + Math.cos(mod.originalY * 0.3 - time * 1.2)) / 3.0), 2); break;
                     case 13: 
-                        const tRadius = L * 4.0;
-                        if (targetPoint.distanceTo(mod.group.position) < tRadius) {
-                            mod.trailHeat = 1.0; 
-                        } else {
-                            mod.trailHeat = Math.max(0, mod.trailHeat - 0.015);
-                        }
-                        targetAngle = MAX_FOLD_ANGLE * (mod.trailHeat * mod.trailHeat);
-                        break;
+                        if (minDistToBody < (L * 4.5)) mod.trailHeat = 1.0; else mod.trailHeat = Math.max(0, mod.trailHeat - 0.015);
+                        targetAngle = MAX_FOLD_ANGLE * (mod.trailHeat * mod.trailHeat); break;
                 }
 
-                if (currentMode === 11) {
-                    mod.currentAngle = targetAngle; 
-                } else {
-                    let angleDifference = targetAngle - mod.currentAngle;
-                    mod.currentAngle += angleDifference * facadeSpeed;
-                }
-
-                mod.hinges.forEach(hinge => {
-                    hinge.rotation.x = mod.currentAngle;
-                });
+                if (currentMode === 11) mod.currentAngle = targetAngle; 
+                else mod.currentAngle += (targetAngle - mod.currentAngle) * facadeSpeed;
+                mod.hinges.forEach(hinge => hinge.rotation.x = mod.currentAngle);
             });
 
             controls.update();
